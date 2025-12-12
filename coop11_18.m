@@ -1,11 +1,11 @@
 function coop11_18()
     num_masses = 15;
     total_mass = 1;
-    tension_force = .5;
+    tension_force = .2;
     string_length = 4;
-    damping_coeff = 0.001;
+    damping_coeff = 0.1;
     dx = string_length/(num_masses+1);
-    amplitude_Uf = 0.1;
+    amplitude_Uf = 0.2;
     % omega_Uf = pi/3;
 
     %generate the struct
@@ -26,8 +26,8 @@ function coop11_18()
 
     %list of x points (including the two endpoints)
     xlist = linspace(0,string_length,num_masses+2);
-    Uf_func = @(t_in) amplitude_Uf*cos(omega_n*t_in);
-    dUfdt_func = @(t_in) -omega_n*amplitude_Uf*sin(omega_n*t_in);
+    Uf_func = @(t_in) amplitude_Uf*cos(omega*t_in);
+    dUfdt_func = @(t_in) -omega*amplitude_Uf*sin(omega*t_in);
     string_params.Uf_func = Uf_func;
     string_params.dUfdt_func = dUfdt_func;
 
@@ -37,10 +37,10 @@ function coop11_18()
     U0 = zeros(string_params.n, 1);
     dUdt0 = zeros(string_params.n, 1);
     V0 = [U0;dUdt0];
-    tspan = [0,100];
+    tspan = [0,15];
     %run the integration
     DP = make_DP_tableau();
-    h_ref = 1e-3;
+    h_ref = 1e-4;
     err_des = 1e-10;
     [t_list,V_list,~,~,~,~] = rk_variable(my_rate_func,tspan,V0,h_ref,DP,5,err_des);
 
@@ -66,27 +66,17 @@ function dVdt = string_rate_func01(t,V,string_params)
     Uf = Uf_func(t);
     dUfdt = dUfdt_func(t);
     %compute acceleration
-    m_per_ball = m/n;
+    num_per_ball = m/n;
     
     %matrices:
     % % d2Udt2 = (Tf/dx*K*U+IC)\M;
-    % Uminus = circshift(U,[-1,0]);
-    % Uminus(end) = 0;
-    Uminus = [U(2:end);0];
-    Uplus = [0;U(1:end-1)];
-
-    dUdtminus = [dUdt(2:end);0];
-    dUdtplus = [0;dUdt(1:end-1)];
-    
-    % Uplus = circshift(U,[-1,0]);
-    % Uplus(1) = 0;
-    ForcingA = [zeros(n-1,1);Uf];
-    UtotA = -2*U+Uminus+Uplus+ForcingA;
-
-    ForcingB = [zeros(n-1,1);dUfdt];
-    UtotB = -2*dUdt+dUdtminus+dUdtplus+ForcingB;
-    
-    d2Udt2 = (Tf/dx*UtotA+c/dx*UtotB)/m_per_ball;
+    Uminus = circshift(U,[-1,0]);
+    Uminus(end) = 0;
+    Uplus = circshift(U,[-1,0]);
+    Uplus(1) = 0;
+    IC = [zeros(n-1,1);Uf];
+    Utot = -2*U+Uminus+Uplus+IC;
+    d2Udt2 = Tf/dx*Utot/num_per_ball;
     %assemble state derivative
     dVdt = [dUdt;d2Udt2];
 end
@@ -97,7 +87,7 @@ function [M_mat,K_mat] = construct_2nd_order_matrices(string_params)
     num_per_ball = string_params.M/n;
     M_mat = num_per_ball*eye(n);
     Q = -2*eye(n)+[zeros(n-1,1),eye(n-1);zeros(1,n);]+[zeros(1,n);eye(n-1),zeros(n-1,1);];
-    K_mat = -string_params.Tf/string_params.dx*Q;
+    K_mat = string_params.Tf/string_params.dx*Q;
 end
 
 %%%NUMERICAL INTEGRATION
@@ -188,8 +178,8 @@ end
 
 %%%animation
 % AVI recorder: simple box + straight springs animation
-function record_animation_avi(filename, frame_rate, t_list, X_list, string_params, rate_factor, mode_num)
-    omega_n = rate_factor/4;
+function record_animation_avi(filename, frame_rate, t_list, X_list, string_params)
+
     v = VideoWriter(filename, 'Motion JPEG AVI');
     v.FrameRate = frame_rate;
     spf = 1/frame_rate;
@@ -221,7 +211,6 @@ function record_animation_avi(filename, frame_rate, t_list, X_list, string_param
         all_U = [Ui;Uk(1:string_params.n);Uf];
         cla; hold on; axis equal;
 
-
         %draw lines between each
         for line = 1:length(all_U)-1
             xs = [string_params.dx*(line-1), string_params.dx*(line)];
@@ -235,8 +224,6 @@ function record_animation_avi(filename, frame_rate, t_list, X_list, string_param
         % draw end and beginning as little dots
         plot(0, Ui, 'ro', 'MarkerFaceColor','r','MarkerSize',2);
         plot(string_params.L, Uf, 'ro', 'MarkerFaceColor','r','MarkerSize',2)
-        framex = 0:0.1:string_params.L;
-        plot(framex, Y_max*sin(framex*mode_num/string_params.L*pi))
 
 
 
@@ -246,7 +233,7 @@ function record_animation_avi(filename, frame_rate, t_list, X_list, string_param
         drawnow;
         frame = getframe(fig);
         writeVideo(v, frame);
-        t_frame = rate_factor*toc(tstart);
+        t_frame = toc(tstart);
     end
 
     close(v);
