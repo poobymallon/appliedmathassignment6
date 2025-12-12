@@ -1,5 +1,5 @@
 function coop11_18()
-    num_masses = 3;
+    num_masses = 15;
     total_mass = 1;
     tension_force = .5;
     string_length = 4;
@@ -21,7 +21,7 @@ function coop11_18()
     [M_mat,K_mat] = construct_2nd_order_matrices(string_params);
     %Use MATLAB to solve the generalized eigenvalue problem
     [Ur_mat,lambda_mat] = eig(K_mat,M_mat);
-    mode_num = 3;
+    mode_num = 1;
     omega_n = sqrt(lambda_mat(mode_num,mode_num));
 
     %list of x points (including the two endpoints)
@@ -45,7 +45,7 @@ function coop11_18()
     [t_list,V_list,~,~,~,~] = rk_variable(my_rate_func,tspan,V0,h_ref,DP,5,err_des);
 
     %generate an animation of the system
-    filename = "test3.avi";
+    filename = "testmany.avi";
     
     record_animation_avi(filename, 30, t_list, V_list, string_params,4/omega_n, mode_num)
 end
@@ -205,6 +205,7 @@ function record_animation_avi(filename, frame_rate, t_list, X_list, string_param
     maxX = max(max(X_list(1:string_params.n,:)));
 
     Y_max = max(abs(minX),abs(maxX));
+    axis([-1,6,-1.2*Y_max,1.2*Y_max])
 
     frame_index = 1;
     t_frame = toc(tstart);
